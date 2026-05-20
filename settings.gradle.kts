@@ -13,5 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "remotedata"
+rootProject.name = "RemoteData"
+
 include(":remotedata")
