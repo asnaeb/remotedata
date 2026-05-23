@@ -1,3 +1,6 @@
+@file:OptIn(ExperimentalWasmDsl::class)
+
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -7,7 +10,7 @@ plugins {
 }
 
 group = "io.github.asnaeb"
-version = "0.0.1"
+version = "0.0.2"
 
 kotlin {
     jvm()
@@ -29,6 +32,16 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
     linuxX64()
+
+    js {
+        browser()
+        nodejs()
+    }
+
+    wasmJs {
+        browser()
+        nodejs()
+    }
 
     sourceSets {
         commonMain.dependencies {
