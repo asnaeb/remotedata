@@ -23,10 +23,6 @@ internal class RemoteDataBase<Data, Params>(
     private var job: Job? = null
 
     @Volatile
-    var isVirgin: Boolean = true
-        private set
-
-    @Volatile
     var lastLoaded: Instant? = null
         private set
 
@@ -40,23 +36,16 @@ internal class RemoteDataBase<Data, Params>(
     override val error: StateFlow<Throwable?> = _error.asStateFlow()
 
     override fun setData(data: Data?) {
-        if (data != null) {
-            isVirgin = false
-        }
-        _data.value = data
-        _error.value = null
+        _data.update { data }
+        _error.update { null }
         lastLoaded = Clock.System.now()
     }
 
     override fun setData(function: (Data?) -> Data) {
         _data.update {
-            if (it != null) {
-                isVirgin = false
-            }
-
             function(it)
         }
-        _error.value = null
+        _error.update { null }
         lastLoaded = Clock.System.now()
     }
 
@@ -67,7 +56,7 @@ internal class RemoteDataBase<Data, Params>(
             }
             else {
                 job = launch {
-                    _loading.value = true
+                    _loading.update { true }
 
                     try {
                         setData(loader(params))
@@ -80,17 +69,17 @@ internal class RemoteDataBase<Data, Params>(
                         }
 
                         launch {
-                            _error.value = e
+                            _error.update { e }
                         }
                         launch {
-                            _data.value = null
+                            _data.update { null }
                         }
                         launch {
                             lastLoaded = null
                         }
                     }
                     finally {
-                        _loading.value = false
+                        _loading.update { false }
                     }
                 }
 

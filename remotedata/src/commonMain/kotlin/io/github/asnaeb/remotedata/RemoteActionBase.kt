@@ -4,6 +4,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -23,24 +24,24 @@ internal class RemoteActionBase<Data, Params>(private val action: suspend (Param
 
     private suspend fun runSuspend(params: Params, throwOnError: Boolean = false) = coroutineScope {
         launch {
-            _loading.value = true
+            _loading.update { true }
         }
 
         launch {
-            _params.value = params
+            _params.update { params }
         }
 
         try {
             val result: Data = action(params)
-            _data.value = result
+            _data.update { result }
         }
         catch (e: Throwable) {
             launch {
-                _error.value = e
+                _error.update { e }
             }
 
             launch {
-                _data.value = null
+                _data.update { null }
             }
 
             if (throwOnError || e is CancellationException) {
@@ -48,7 +49,7 @@ internal class RemoteActionBase<Data, Params>(private val action: suspend (Param
             }
         }
         finally {
-            _loading.value = false
+            _loading.update { false }
         }
     }
 

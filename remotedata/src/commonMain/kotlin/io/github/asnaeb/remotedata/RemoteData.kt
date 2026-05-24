@@ -36,13 +36,6 @@ class RemoteData<Data> internal constructor(
             loadIfStale()
 
             base.data.collect(collector)
-//            base.data.collect {
-//                if (base.isVirgin && it == null) {
-//                    return@collect
-//                }
-//
-//                collector.emit(it)
-//            }
         }
     }
 
