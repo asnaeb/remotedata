@@ -7,4 +7,6 @@ interface IRemoteAction<Data, Params> {
     val params: StateFlow<Params?>
     val data: StateFlow<Data?>
     val error: StateFlow<Throwable?>
+
+    suspend fun runAsync(params: Params): Data?
 }

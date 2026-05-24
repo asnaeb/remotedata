@@ -53,7 +53,7 @@ internal class RemoteActionBase<Data, Params>(private val action: suspend (Param
         }
     }
 
-    suspend fun runAsync(params: Params): Data? {
+    override suspend fun runAsync(params: Params): Data? {
         runSuspend(params, throwOnError = true)
         return data.value
     }

@@ -1,6 +1,10 @@
 package io.github.asnaeb.remotedata
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -42,4 +46,10 @@ class RemoteAction<Data, Params> internal constructor(
             }
         }
     }
+
+    fun loading(params: Params): Flow<Boolean> = loading
+        .combine(this.params) {
+            loading, currentParams -> loading && params == currentParams
+        }
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), false)
 }
