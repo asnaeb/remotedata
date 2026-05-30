@@ -5,9 +5,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
-class RemoteDataRegistry(
-    val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-    private val defaultLoadOnInit: Boolean = true,
+open class RemoteDataRegistry(
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    private val defaultLoadOnInit: Boolean = false,
     private val defaultStaleTime: Duration = 5.minutes
 ) {
     private val dataRegistry: MutableMap<RemoteDataKey<*>, RemoteDataBase<*, *>> = mutableMapOf()
