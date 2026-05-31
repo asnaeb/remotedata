@@ -3,10 +3,12 @@ package io.github.asnaeb.remotedata
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -16,12 +18,22 @@ class RemoteData<Data> internal constructor(
     private val scope: CoroutineScope,
     private val loadOnInit: Boolean,
     private val staleTime: Duration,
+    private val refetchInterval: Duration?,
 ) : IRemoteData<Data> by base {
     private val isStale: Boolean get() = base.lastLoaded?.let { Clock.System.now() - it > staleTime } ?: true
 
     init {
         if (loadOnInit) {
             loadIfStale()
+        }
+
+        if (refetchInterval != null) {
+            scope.launch {
+                while (isActive) {
+                    loadSuspend()
+                    delay(refetchInterval)
+                }
+            }
         }
     }
 
@@ -84,5 +96,6 @@ class RemoteData<Data> internal constructor(
         scope: CoroutineScope = this.scope,
         loadOnInit: Boolean = this.loadOnInit,
         staleTime: Duration = this.staleTime,
-    ) = RemoteData(base, scope, loadOnInit, staleTime)
+        refetchInterval: Duration? = this.refetchInterval
+    ) = RemoteData(base, scope, loadOnInit, staleTime, refetchInterval)
 }

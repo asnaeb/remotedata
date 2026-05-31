@@ -8,7 +8,8 @@ import kotlin.time.Duration.Companion.minutes
 open class RemoteDataRegistry(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
     private val defaultLoadOnInit: Boolean = false,
-    private val defaultStaleTime: Duration = 5.minutes
+    private val defaultStaleTime: Duration = 5.minutes,
+    private val defaultRefetchInterval: Duration? = null,
 ) {
     private val dataRegistry: MutableMap<RemoteDataKey<*>, RemoteDataBase<*, *>> = mutableMapOf()
     private val actionRegistry: MutableMap<String, RemoteActionBase<*, *>> = mutableMapOf()
@@ -18,6 +19,7 @@ open class RemoteDataRegistry(
         scope: CoroutineScope = this.scope,
         loadOnInit: Boolean = defaultLoadOnInit,
         staleTime: Duration = defaultStaleTime,
+        refetchInterval: Duration? = defaultRefetchInterval,
         loader: suspend (Params) -> Data? = { error("Loader not provided") },
     ): (Params) -> RemoteData<Data> = { params ->
         val key: RemoteDataKey<Params> = RemoteDataKey(id, params)
@@ -30,7 +32,8 @@ open class RemoteDataRegistry(
             base = base as RemoteDataBase<Data, Params>,
             scope = scope,
             loadOnInit = loadOnInit,
-            staleTime = staleTime
+            staleTime = staleTime,
+            refetchInterval = refetchInterval
         ))
     }
 
@@ -39,12 +42,14 @@ open class RemoteDataRegistry(
         scope: CoroutineScope = this.scope,
         loadOnInit: Boolean = defaultLoadOnInit,
         staleTime: Duration = defaultStaleTime,
+        refetchInterval: Duration? = defaultRefetchInterval,
         loader: suspend () -> Data? = { error("Loader not provided") },
     ): RemoteData<Data> = useRemoteData<Data, Unit>(
         id = id,
         scope = scope,
         loadOnInit = loadOnInit,
         staleTime = staleTime,
+        refetchInterval = refetchInterval,
         loader = { loader() }
     )(Unit)
 
