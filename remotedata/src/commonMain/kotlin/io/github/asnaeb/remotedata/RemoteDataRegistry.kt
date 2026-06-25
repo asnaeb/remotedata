@@ -37,6 +37,23 @@ open class RemoteDataRegistry(
         ))
     }
 
+    fun <Data, Params> useRemoteData(
+        id: String,
+        params: Params,
+        scope: CoroutineScope = this.scope,
+        loadOnInit: Boolean = defaultLoadOnInit,
+        staleTime: Duration = defaultStaleTime,
+        reloadInterval: Duration? = defaultReloadInterval,
+        loader: suspend (Params) -> Data? = { error("Loader not provided") },
+    ): RemoteData<Data> = useRemoteData(
+        id,
+        scope,
+        loadOnInit,
+        staleTime,
+        reloadInterval,
+        loader
+    )(params)
+
     fun <Data> useStaticRemoteData(
         id: String,
         scope: CoroutineScope = this.scope,
