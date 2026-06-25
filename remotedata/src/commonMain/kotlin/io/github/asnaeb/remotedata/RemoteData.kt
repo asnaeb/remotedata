@@ -18,7 +18,7 @@ class RemoteData<Data> internal constructor(
     private val scope: CoroutineScope,
     private val loadOnInit: Boolean,
     private val staleTime: Duration,
-    private val refetchInterval: Duration?,
+    private val reloadInterval: Duration?,
 ) : IRemoteData<Data> by base {
     private val isStale: Boolean get() = base.lastLoaded?.let { Clock.System.now() - it > staleTime } ?: true
 
@@ -27,11 +27,13 @@ class RemoteData<Data> internal constructor(
             loadIfStale()
         }
 
-        if (refetchInterval != null) {
+        if (reloadInterval != null) {
             scope.launch {
                 while (isActive) {
-                    loadSuspend()
-                    delay(refetchInterval)
+                    if (base.lastLoaded != null) {
+                        loadSuspend()
+                        delay(reloadInterval)
+                    }
                 }
             }
         }
@@ -92,10 +94,21 @@ class RemoteData<Data> internal constructor(
         }
     }
 
+    @Deprecated(
+        "This method is deprecated, use copy instead",
+        replaceWith = ReplaceWith("copy(scope, loadOnInit, staleTime, refetchInterval)")
+    )
     fun withOptions(
         scope: CoroutineScope = this.scope,
         loadOnInit: Boolean = this.loadOnInit,
         staleTime: Duration = this.staleTime,
-        refetchInterval: Duration? = this.refetchInterval
+        refetchInterval: Duration? = this.reloadInterval
     ) = RemoteData(base, scope, loadOnInit, staleTime, refetchInterval)
+
+    fun copy(
+        scope: CoroutineScope = this.scope,
+        loadOnInit: Boolean = this.loadOnInit,
+        staleTime: Duration = this.staleTime,
+        refetchInterval: Duration? = this.reloadInterval
+    ) = withOptions(scope, loadOnInit, staleTime, refetchInterval)
 }

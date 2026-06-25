@@ -1,9 +1,9 @@
 [versions]
 agp = "9.0.1"
-kotlin = "2.3.21"
+kotlin = "2.4.0"
 android-minSdk = "24"
 android-compileSdk = "36"
-vanniktechMavenPublish = "0.36.0"
+vanniktechMavenPublish = "0.37.0"
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
 

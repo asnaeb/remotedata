@@ -2,9 +2,7 @@ package io.github.asnaeb.remotedata
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -17,7 +15,8 @@ class RemoteAction<Data, Params> internal constructor(
         onSuccess: (suspend (Data?) -> Unit)? = null,
         onError: (suspend (Throwable) -> Unit)? = null,
         onCancel: (suspend (CancellationException) -> Unit)? = null,
-        onSettled: (suspend () -> Unit)? = null
+        onSettled: (suspend () -> Unit)? = null,
+        scope: CoroutineScope = this.scope
     ) {
         scope.launch {
             try {
@@ -51,5 +50,4 @@ class RemoteAction<Data, Params> internal constructor(
         .combine(this.params) {
             loading, currentParams -> loading && params == currentParams
         }
-        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), false)
 }
