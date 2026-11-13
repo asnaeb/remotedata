@@ -1,85 +1,151 @@
 package io.github.asnaeb.remotedata
 
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.serializer
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 open class RemoteDataRegistry(
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
-    private val defaultLoadOnInit: Boolean = false,
-    private val defaultStaleTime: Duration = 5.minutes,
-    private val defaultReloadInterval: Duration? = null,
+    val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    val defaultLoadOnInit: Boolean = false,
+    val defaultStaleTime: Duration = 5.minutes,
+    val defaultReloadInterval: Duration? = null,
+    val defaultMaxRetries: Int = 0,
+    val defaultRetryDelay: (Int) -> Duration = { 1.seconds * (1 shl it) },
+    val defaultPersister: RemoteDataPersister? = null,
+    val defaultActionStrategy: ConcurrentActionStrategy = ConcurrentActionStrategy.JOIN
 ) {
-    private val dataRegistry: MutableMap<RemoteDataKey<*>, RemoteDataBase<*, *>> = mutableMapOf()
-    private val actionRegistry: MutableMap<String, RemoteActionBase<*, *>> = mutableMapOf()
+    private val actionRegistry: MutableMap<Any, RemoteAction<*, *>> = mutableMapOf()
+    private val dataRegistry: MutableMap<RemoteDataKey<*, *>, RemoteData<*, *, *>> = mutableMapOf()
 
-    fun <Data, Params> useRemoteData(
-        id: String,
-        scope: CoroutineScope = this.scope,
-        loadOnInit: Boolean = defaultLoadOnInit,
-        staleTime: Duration = defaultStaleTime,
-        reloadInterval: Duration? = defaultReloadInterval,
-        loader: suspend (Params) -> Data? = { error("Loader not provided") },
-    ): (Params) -> RemoteData<Data> = { params ->
-        val key: RemoteDataKey<Params> = RemoteDataKey(id, params)
-        val base: RemoteDataBase<*, *> = dataRegistry[key] ?: RemoteDataBase(key.params, loader).also {
-            dataRegistry[key] = it
+    private val dataKeys = mutableSetOf<Any?>()
+
+    private val lock = SynchronizedObject()
+
+    fun clear() {
+        synchronized(lock) {
+            actionRegistry.clear()
+            dataRegistry.clear()
         }
-
-        @Suppress("UNCHECKED_CAST")
-        (RemoteData(
-            base = base as RemoteDataBase<Data, Params>,
-            scope = scope,
-            loadOnInit = loadOnInit,
-            staleTime = staleTime,
-            reloadInterval = reloadInterval
-        ))
     }
 
-    fun <Data, Params> useRemoteData(
-        id: String,
-        params: Params,
-        scope: CoroutineScope = this.scope,
-        loadOnInit: Boolean = defaultLoadOnInit,
-        staleTime: Duration = defaultStaleTime,
-        reloadInterval: Duration? = defaultReloadInterval,
-        loader: suspend (Params) -> Data? = { error("Loader not provided") },
-    ): RemoteData<Data> = useRemoteData(
-        id,
-        scope,
-        loadOnInit,
-        staleTime,
-        reloadInterval,
-        loader
-    )(params)
+    fun remove(key: Any) {
+        synchronized(lock) {
+            dataKeys.remove(key)
+            dataRegistry.keys.removeAll { it.key == key }
+            actionRegistry.remove(key)
+        }
+    }
 
-    fun <Data> useStaticRemoteData(
-        id: String,
-        scope: CoroutineScope = this.scope,
-        loadOnInit: Boolean = defaultLoadOnInit,
-        staleTime: Duration = defaultStaleTime,
+    fun <Key, Data, Params> dataFactory(
+        key: @Serializable Key,
+        serializer: RemoteDataSerializer<Key, Data, Params>,
         reloadInterval: Duration? = defaultReloadInterval,
-        loader: suspend () -> Data? = { error("Loader not provided") },
-    ): RemoteData<Data> = useRemoteData<Data, Unit>(
-        id = id,
-        scope = scope,
-        loadOnInit = loadOnInit,
-        staleTime = staleTime,
+        maxRetries: Int = defaultMaxRetries,
+        retryDelay: (Int) -> Duration = defaultRetryDelay,
+        persister: RemoteDataPersister? = defaultPersister,
+        loader: suspend (@Serializable Params) -> @Serializable Data,
+    ): (@Serializable Params) -> RemoteData<Key, Data, Params> {
+        synchronized(lock) {
+            require(dataKeys.add(key)) { "Key $key already present in RemoteDataRegistry" }
+
+            return { params ->
+                val remoteDataKey = RemoteDataKey(key = key, params = params)
+
+                dataRegistry.getOrPut(remoteDataKey) {
+                    RemoteData(
+                        registry = this,
+                        serializer = serializer,
+                        key = remoteDataKey,
+                        maxRetries = maxRetries.coerceAtLeast(0),
+                        retryDelay = retryDelay,
+                        reloadInterval = reloadInterval,
+                        persister = persister,
+                        loader = loader
+                    )
+                } as RemoteData<Key, Data, Params>
+            }
+        }
+    }
+
+    fun <Key, Data> data(
+        key: @Serializable Key,
+        serializer: RemoteDataSerializer<Key, Data, Unit>,
+        reloadInterval: Duration? = defaultReloadInterval,
+        maxRetries: Int = defaultMaxRetries,
+        retryDelay: (Int) -> Duration = defaultRetryDelay,
+        persister: RemoteDataPersister? = defaultPersister,
+        loader: suspend () -> @Serializable Data,
+    ): RemoteData<Key, Data, Unit> = dataFactory(
+        key = key,
+        serializer = serializer,
         reloadInterval = reloadInterval,
+        maxRetries = maxRetries,
+        retryDelay = retryDelay,
+        persister = persister,
         loader = { loader() }
     )(Unit)
 
-    fun <Data, Params> useRemoteAction(
-        id: String,
-        scope: CoroutineScope = this.scope,
-        action: suspend (Params) -> Data = { error("Action not provided") }
-    ): RemoteAction<Data, Params> {
-        val base: RemoteActionBase<*, *> = actionRegistry[id] ?: RemoteActionBase(action).also {
-            actionRegistry[id] = it
+    fun <Params, Data> action(
+        key: Any,
+        strategy: ConcurrentActionStrategy = defaultActionStrategy,
+        action: suspend (Params) -> Data
+    ): RemoteAction<Params, Data> {
+        synchronized(lock) {
+            return actionRegistry.getOrPut(key) {
+                RemoteAction(
+                    scope = scope,
+                    strategy = strategy,
+                    action = action
+                )
+            }  as RemoteAction<Params, Data>
         }
-
-        @Suppress("UNCHECKED_CAST")
-        return RemoteAction(base as RemoteActionBase<Data, Params>, scope)
     }
 }
+
+inline fun <reified Key, reified Data, reified Params>RemoteDataRegistry.dataFactory(
+    key: Key,
+    reloadInterval: Duration? = defaultReloadInterval,
+    maxRetries: Int = defaultMaxRetries,
+    noinline retryDelay: (Int) -> Duration = defaultRetryDelay,
+    persister: RemoteDataPersister? = defaultPersister,
+    noinline loader: suspend (Params) -> Data,
+): (Params) -> RemoteData<Key, Data, Params> {
+    val serializer = RemoteDataSerializer(
+        keySerializer = serializer<Key>(),
+        dataSerializer = serializer<Data>(),
+        paramsSerializer = serializer<Params>()
+    )
+
+    return dataFactory(
+        key = key,
+        serializer = serializer,
+        reloadInterval = reloadInterval,
+        maxRetries = maxRetries,
+        retryDelay = retryDelay,
+        persister = persister,
+        loader = loader
+    )
+}
+
+inline fun <reified Key, reified Data> RemoteDataRegistry.data(
+    key: Key,
+    reloadInterval: Duration? = defaultReloadInterval,
+    maxRetries: Int = defaultMaxRetries,
+    noinline retryDelay: (Int) -> Duration = defaultRetryDelay,
+    persister: RemoteDataPersister? = defaultPersister,
+    noinline loader: suspend () -> Data,
+): RemoteData<Key, Data, Unit> = dataFactory<Key, Data, Unit>(
+    key = key,
+    reloadInterval = reloadInterval,
+    maxRetries = maxRetries,
+    retryDelay = retryDelay,
+    persister = persister,
+    loader = { loader() }
+)(Unit)

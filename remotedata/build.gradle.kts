@@ -7,10 +7,11 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.vanniktech.mavenPublish)
+    alias(libs.plugins.kotlinxSerialization)
 }
 
 group = "io.github.asnaeb"
-version = "0.0.6"
+version = "1.0.0-alpha01"
 
 kotlin {
     jvm()
@@ -19,7 +20,7 @@ kotlin {
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
-        withJava() // enable java compilation support
+        withJava()
         withHostTestBuilder {}.configure {}
         withDeviceTestBuilder {
             sourceSetTreeName = "test"
@@ -47,10 +48,12 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.kotlinx.atomicfu)
         }
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }
