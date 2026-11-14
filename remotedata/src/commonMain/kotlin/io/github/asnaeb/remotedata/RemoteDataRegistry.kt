@@ -43,6 +43,16 @@ open class RemoteDataRegistry(
         }
     }
 
+    fun forEachMatchingKey(vararg keys: Any, action: (RemoteData<*, *, *>) -> Unit) {
+        val keySet = keys.toSet()
+
+        val matchingData = synchronized(lock) {
+            dataRegistry.filterKeys { it.key in keySet }
+        }
+
+        matchingData.values.forEach(action)
+    }
+
     fun <Key, Data, Params> dataFactory(
         key: @Serializable Key,
         serializer: RemoteDataSerializer<Key, Data, Params>,
