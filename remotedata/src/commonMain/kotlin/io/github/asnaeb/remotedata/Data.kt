@@ -22,16 +22,16 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-class RemoteData<Key, Data, Params> internal constructor(
-    private val registry: RemoteDataRegistry,
-    private val serializer: RemoteDataSerializer<Key, Data, Params>,
-    private val key: RemoteDataKey<Key, Params>,
+class Data<Key : Any, Data, Params> internal constructor(
+    private val registry: Registry,
+    private val serializer: DataSerializer<Key, Data, Params>,
+    private val key: DataKey<Key, Params>,
     private val reloadInterval: Duration?,
-    private val persister: RemoteDataPersister?,
+    private val persister: DataPersister?,
     private val maxRetries: Int,
     private val retryDelay: (attempt: Int) -> Duration,
     private val loader: suspend (Params) -> Data,
-) : RemoteDataHandle<Data> {
+) : DataHandle<Data> {
     private val loadMutex = Mutex()
 
     @Volatile
@@ -248,9 +248,9 @@ class RemoteData<Key, Data, Params> internal constructor(
 
     fun observe(
         scope: CoroutineScope,
-        staleTime: Duration = registry.defaultStaleTime,
-        loadOnInit: Boolean = registry.defaultLoadOnInit,
-    ) = RemoteDataObserver(
+        staleTime: Duration = registry.defaultDataStaleTime,
+        loadOnInit: Boolean = registry.defaultDataLoadOnInit,
+    ) = DataObserver(
         base = this,
         scope = scope,
         staleTime = staleTime,

@@ -6,12 +6,12 @@ import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.Duration
 
-class RemoteDataObserver<Key, Data, Params> internal constructor(
-    private val base: RemoteData<Key, Data, Params>,
+class DataObserver<Key : Any, Data, Params> internal constructor(
+    private val base: io.github.asnaeb.remotedata.Data<Key, Data, Params>,
     private val scope: CoroutineScope,
     loadOnInit: Boolean,
     private val staleTime: Duration
-) : RemoteDataHandle<Data> by base {
+) : DataHandle<Data> by base {
     private fun canReload(value: DataResult<Data> = base.current.value): Boolean {
         if (value.loading()) {
             return false

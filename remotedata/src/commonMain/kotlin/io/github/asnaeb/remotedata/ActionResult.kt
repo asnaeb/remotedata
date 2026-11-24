@@ -9,6 +9,7 @@ sealed interface ActionResult<Params, Data> {
         val error: Throwable,
         val params: Params,
         val staleData: Data?,
+        val retry: suspend () -> Unit
     ) : ActionResult<Params, Data>
 
     fun data(): Data? = when (this) {

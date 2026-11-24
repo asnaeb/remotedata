@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-class RemoteActionRunner<Params, Data> internal constructor(
-    private val action: RemoteAction<Params, Data>,
+class ActionRunner<Params, Data> internal constructor(
+    private val action: Action<Params, Data>,
     private val scope: CoroutineScope,
-) : RemoteActionHandle<Params, Data> by action {
+) : ActionHandle<Params, Data> by action {
     private val lastParams = MutableStateFlow<Params?>(null)
 
     val currentResult: Flow<ActionResult<Params, Data>?> =

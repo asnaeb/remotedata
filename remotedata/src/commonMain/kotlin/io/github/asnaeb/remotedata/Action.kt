@@ -15,11 +15,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
 
-class RemoteAction<Params, Data> internal constructor(
+class Action<Params, Data> internal constructor(
     private val scope: CoroutineScope,
     private val strategy: ConcurrentActionStrategy,
     private val action: suspend (Params) -> Data
-) : RemoteActionHandle<Params, Data> {
+) : ActionHandle<Params, Data> {
     val results: StateFlow<Map<Params, ActionResult<Params, Data>>>
         field = MutableStateFlow<Map<Params, ActionResult<Params, Data>>>(emptyMap())
 
@@ -77,7 +77,8 @@ class RemoteAction<Params, Data> internal constructor(
                         ActionResult.Error(
                             params = params,
                             error = e,
-                            staleData = get(params)?.data()
+                            staleData = get(params)?.data(),
+                            retry = { runAction(params) }
                         )
                     )
                 }
@@ -125,5 +126,5 @@ class RemoteAction<Params, Data> internal constructor(
         return results.map { it[params] }
     }
 
-    fun runner(scope: CoroutineScope) = RemoteActionRunner(this, scope)
+    fun runner(scope: CoroutineScope) = ActionRunner(this, scope)
 }

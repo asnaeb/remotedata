@@ -2,7 +2,7 @@ package io.github.asnaeb.remotedata
 
 import kotlinx.coroutines.flow.StateFlow
 
-interface RemoteDataHandle<Data> {
+interface DataHandle<Data> {
     val current: StateFlow<DataResult<Data>>
     fun setData(data: Data): DataResult.Success<Data>
     fun setData(setter: (Data?) -> Data): DataResult.Success<Data>
